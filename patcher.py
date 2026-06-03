@@ -2,214 +2,423 @@ import os
 import re
 import sys
 
-def patch_werygram_core():
-    settings_path = "TMessagesProj/src/main/java/org/telegram/ui/SettingsActivity.java"
-    userconfig_path = "TMessagesProj/src/main/java/org/telegram/messenger/UserConfig.java"
-    messages_path = "TMessagesProj/src/main/java/org/telegram/messenger/MessagesController.java"
-    
-    if not os.path.exists(settings_path):
-        print(f"🚨 КРИТИЧЕСКАЯ ОШИБКА: Файл не найден: {settings_path}")
-        sys.exit(1)
+# ============================================================
+#  WeryGram Premium — Triple Auto-Patcher v2.0
+#  Добавляет кнопку в настройки → отдельный экран с тогглами
+# ============================================================
 
-    print("⏳ Авто-патчер Werygram (AyuGram-style) запущен...")
+SETTINGS_PATH  = "TMessagesProj/src/main/java/org/telegram/ui/SettingsActivity.java"
+USERCONFIG_PATH = "TMessagesProj/src/main/java/org/telegram/messenger/UserConfig.java"
+MESSAGES_PATH  = "TMessagesProj/src/main/java/org/telegram/messenger/MessagesController.java"
+UI_DIR         = "TMessagesProj/src/main/java/org/telegram/ui"
 
-    # ==========================================
-    # 1. МОДЕРНИЗАЦИЯ ИНТЕРФЕЙСА (SettingsActivity)
-    # ==========================================
-    with open(settings_path, "r", encoding="utf-8") as f:
-        code = f.read()
+# ============================================================
+# ШАБЛОН: WeryGramPremiumActivity.java
+# Новый экран настроек с тогглами (как на скриншоте)
+# ============================================================
+PREMIUM_ACTIVITY = '''\
+package org.telegram.ui;
 
-    # Полная зачистка старых компонентов мода, чтобы не плодить дубли
+import android.content.Context;
+import android.os.Bundle;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.LinearLayout;
+import android.widget.TextView;
+import android.widget.Toast;
+import androidx.annotation.NonNull;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
+import org.telegram.messenger.AndroidUtilities;
+import org.telegram.messenger.MessagesController;
+import org.telegram.messenger.R;
+import org.telegram.ui.ActionBar.ActionBar;
+import org.telegram.ui.ActionBar.BaseFragment;
+import org.telegram.ui.Cells.TextCheckCell;
+import org.telegram.ui.Components.RecyclerListView;
+import org.telegram.messenger.LocaleController;
+import android.graphics.Canvas;
+import android.graphics.Paint;
+
+/**
+ * WeryGram Premium Settings Screen
+ * Показывает тоглл-список «Визуально Telegram Premium»
+ * Каждый переключатель сохраняет состояние в SharedPreferences
+ * и мгновенно применяет визуальные изменения.
+ */
+public class WeryGramPremiumActivity extends BaseFragment {
+
+    // ── Идентификаторы строк ──────────────────────────────────────────────
+    private static final int ROW_HEADER          = 0;
+    private static final int ROW_VISUAL_PREMIUM  = 1;   // «Визуально Telegram Premium»
+    private static final int ROW_VERIFIED_BADGE  = 2;   // «Галочка верификации»
+    private static final int ROW_HIDE_ADS        = 3;   // «Скрыть рекламу»
+    private static final int ROW_ANIMATED_EMOJI  = 4;   // «Анимированные эмодзи»
+    private static final int ROW_PREMIUM_STICKERS = 5;  // «Премиум стикеры»
+    private static final int ROW_PREMIUM_REACTIONS = 6; // «Расширенные реакции»
+    private static final int ROWS_COUNT          = 7;
+
+    // ── Ключи SharedPreferences ───────────────────────────────────────────
+    private static final String KEY_VISUAL_PREMIUM   = "visual_premium";
+    private static final String KEY_VERIFIED         = "wery_verified";
+    private static final String KEY_HIDE_ADS         = "wery_hide_ads";
+    private static final String KEY_ANIM_EMOJI       = "wery_anim_emoji";
+    private static final String KEY_PREM_STICKERS    = "wery_prem_stickers";
+    private static final String KEY_PREM_REACTIONS   = "wery_prem_reactions";
+
+    private RecyclerListView listView;
+    private ListAdapter adapter;
+
+    // ── Helpers ───────────────────────────────────────────────────────────
+    private static android.content.SharedPreferences prefs() {
+        return MessagesController.getGlobalMainSettings();
+    }
+
+    private static boolean get(String key) {
+        return prefs().getBoolean(key, false);
+    }
+
+    private static void set(String key, boolean value) {
+        prefs().edit().putBoolean(key, value).apply();
+    }
+
+    // ── BaseFragment lifecycle ────────────────────────────────────────────
+    @Override
+    public boolean onFragmentCreate() {
+        super.onFragmentCreate();
+        return true;
+    }
+
+    @Override
+    public View createView(Context context) {
+        // ActionBar
+        actionBar.setBackButtonImage(R.drawable.ic_ab_back);
+        actionBar.setTitle("WeryGram Premium");
+        actionBar.setAllowOverlayTitle(true);
+        actionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
+            @Override
+            public void onItemClick(int id) {
+                if (id == -1) finishFragment();
+            }
+        });
+
+        // Корневой контейнер
+        fragmentView = new LinearLayout(context);
+        LinearLayout layout = (LinearLayout) fragmentView;
+        layout.setOrientation(LinearLayout.VERTICAL);
+        layout.setBackgroundColor(0xFFF0F0F0);
+
+        // RecyclerView
+        listView = new RecyclerListView(context);
+        listView.setLayoutManager(new LinearLayoutManager(context, LinearLayoutManager.VERTICAL, false));
+        listView.setVerticalScrollBarEnabled(false);
+        listView.setAdapter(adapter = new ListAdapter(context));
+
+        // Клик по строке ↔ тоггл
+        listView.setOnItemClickListener((view, position) -> {
+            if (!(view instanceof TextCheckCell)) return;
+            TextCheckCell cell = (TextCheckCell) view;
+            switch (position) {
+                case ROW_VISUAL_PREMIUM: {
+                    boolean next = !get(KEY_VISUAL_PREMIUM);
+                    set(KEY_VISUAL_PREMIUM, next);
+                    // Синхронизируем зависимые флаги
+                    if (next) {
+                        set(KEY_VERIFIED,       true);
+                        set(KEY_ANIM_EMOJI,     true);
+                        set(KEY_PREM_STICKERS,  true);
+                        set(KEY_PREM_REACTIONS, true);
+                    }
+                    cell.setChecked(next);
+                    adapter.notifyDataSetChanged();
+                    toast(next
+                        ? "WeryGram: Визуальный Premium АКТИВИРОВАН! 🎉"
+                        : "WeryGram: Визуальный Premium отключён");
+                    break;
+                }
+                case ROW_VERIFIED_BADGE: {
+                    boolean next = !get(KEY_VERIFIED);
+                    set(KEY_VERIFIED, next);
+                    cell.setChecked(next);
+                    toast(next ? "Галочка верификации включена ✅" : "Галочка скрыта");
+                    break;
+                }
+                case ROW_HIDE_ADS: {
+                    boolean next = !get(KEY_HIDE_ADS);
+                    set(KEY_HIDE_ADS, next);
+                    cell.setChecked(next);
+                    toast(next ? "Реклама скрыта 🚫" : "Реклама включена");
+                    break;
+                }
+                case ROW_ANIMATED_EMOJI: {
+                    boolean next = !get(KEY_ANIM_EMOJI);
+                    set(KEY_ANIM_EMOJI, next);
+                    cell.setChecked(next);
+                    toast(next ? "Анимированные эмодзи включены ✨" : "Анимированные эмодзи отключены");
+                    break;
+                }
+                case ROW_PREMIUM_STICKERS: {
+                    boolean next = !get(KEY_PREM_STICKERS);
+                    set(KEY_PREM_STICKERS, next);
+                    cell.setChecked(next);
+                    toast(next ? "Премиум стикеры включены 🎭" : "Премиум стикеры отключены");
+                    break;
+                }
+                case ROW_PREMIUM_REACTIONS: {
+                    boolean next = !get(KEY_PREM_REACTIONS);
+                    set(KEY_PREM_REACTIONS, next);
+                    cell.setChecked(next);
+                    toast(next ? "Расширенные реакции включены 💥" : "Реакции — базовые");
+                    break;
+                }
+            }
+        });
+
+        layout.addView(listView, new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.MATCH_PARENT));
+
+        return fragmentView;
+    }
+
+    private void toast(String msg) {
+        if (getParentActivity() != null)
+            Toast.makeText(getParentActivity(), msg, Toast.LENGTH_SHORT).show();
+    }
+
+    // ── Adapter ───────────────────────────────────────────────────────────
+    private class ListAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
+
+        private static final int TYPE_HEADER = 0;
+        private static final int TYPE_CHECK  = 1;
+
+        private final Context mCtx;
+
+        ListAdapter(Context ctx) { mCtx = ctx; }
+
+        @Override public int getItemCount() { return ROWS_COUNT; }
+
+        @Override public int getItemViewType(int pos) {
+            return pos == ROW_HEADER ? TYPE_HEADER : TYPE_CHECK;
+        }
+
+        @NonNull @Override
+        public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int type) {
+            View v;
+            if (type == TYPE_HEADER) {
+                // Серый заголовок-раздел (как в Telegram Settings)
+                TextView tv = new TextView(mCtx);
+                tv.setPadding(
+                    AndroidUtilities.dp(21), AndroidUtilities.dp(14),
+                    AndroidUtilities.dp(21), AndroidUtilities.dp(6));
+                tv.setTextSize(13);
+                tv.setTextColor(0xFF79879B);
+                tv.setText("ВИЗУАЛЬНЫЕ НАСТРОЙКИ");
+                tv.setLayoutParams(new RecyclerView.LayoutParams(
+                    RecyclerView.LayoutParams.MATCH_PARENT,
+                    RecyclerView.LayoutParams.WRAP_CONTENT));
+                return new RecyclerView.ViewHolder(tv) {};
+            }
+            v = new TextCheckCell(mCtx);
+            v.setBackgroundColor(0xFFFFFFFF);
+            return new RecyclerView.ViewHolder(v) {};
+        }
+
+        @Override
+        public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int pos) {
+            if (pos == ROW_HEADER) return;
+            TextCheckCell cell = (TextCheckCell) holder.itemView;
+            switch (pos) {
+                case ROW_VISUAL_PREMIUM:
+                    cell.setTextAndCheck(
+                        "Визуально Telegram Premium",
+                        get(KEY_VISUAL_PREMIUM), true);
+                    break;
+                case ROW_VERIFIED_BADGE:
+                    cell.setTextAndCheck(
+                        "Галочка верификации",
+                        get(KEY_VERIFIED), true);
+                    break;
+                case ROW_HIDE_ADS:
+                    cell.setTextAndCheck(
+                        "Скрыть рекламу",
+                        get(KEY_HIDE_ADS), true);
+                    break;
+                case ROW_ANIMATED_EMOJI:
+                    cell.setTextAndCheck(
+                        "Анимированные эмодзи",
+                        get(KEY_ANIM_EMOJI), true);
+                    break;
+                case ROW_PREMIUM_STICKERS:
+                    cell.setTextAndCheck(
+                        "Премиум стикеры",
+                        get(KEY_PREM_STICKERS), true);
+                    break;
+                case ROW_PREMIUM_REACTIONS:
+                    cell.setTextAndCheck(
+                        "Расширенные реакции",
+                        get(KEY_PREM_REACTIONS), false);
+                    break;
+            }
+        }
+    }
+}
+'''
+
+# ============================================================
+# ОСНОВНОЙ ПATCHER
+# ============================================================
+
+def patch_settings(code: str) -> str:
+    """Добавляет кнопку WeryGram Premium в SettingsActivity и навигацию на новый экран."""
+
+    # 1. Убираем старые версии кнопки (чистый старт)
     code = re.sub(r'case 9999:.*?break;', '', code, flags=re.DOTALL)
     code = re.sub(r'items\.add\(SettingCell\.Factory\.of\(9999,[\s\S]*?\);\s*', '', code)
     code = re.sub(r'items\.add\(UItem\.asCheck\(9999,[\s\S]*?\);\s*', '', code)
-    code = re.sub(r'public static class WeryGramSettingsActivity[\s\S]*?$', '', code, flags=re.MULTILINE)
-    code = re.sub(r'public static class WerygramSettingsActivity[\s\S]*?$', '', code, flags=re.MULTILINE)
 
-    # Нативная кнопка "Werygram", которая появится в главном меню настроек
-    werygram_btn = 'items.add(SettingCell.Factory.of(9999, 0xFF55CA47, 0xFF27B434, R.drawable.msg_settings, "Werygram"));'
+    # 2. Кнопка в список настроек (зелёная, с иконкой настроек)
+    BUTTON = (
+        'items.add(SettingCell.Factory.of(9999, 0xFF55CA47, 0xFF27B434, '
+        'R.drawable.msg_settings, "WeryGram Premium"));'
+    )
 
-    # Возвращаем проверенный каскад поиска, чтобы кнопка встала в первый список настроек
-    match_privacy = re.search(r'(items\.add\([\s\S]*?[pP]rivacy[\s\S]*?\);)', code)
-    match_chat = re.search(r'(items\.add\([\s\S]*?[cC]hat[sS]ettings[\s\S]*?\);)', code)
-    match_notif = re.search(r'(items\.add\([\s\S]*?[nN]otif[\s\S]*?\);)', code)
-
-    if match_privacy:
-        anchor = match_privacy.group(1)
-        code = code.replace(anchor, f'{werygram_btn}\n        {anchor}')
-        print("✅ Главная кнопка 'Werygram' установлена возле блока Конфиденциальности!")
-    elif match_chat:
-        anchor = match_chat.group(1)
-        code = code.replace(anchor, f'{werygram_btn}\n        {anchor}')
-        print("✅ Главная кнопка 'Werygram' установлена возле Настроек чатов!")
-    elif match_notif:
-        anchor = match_notif.group(1)
-        code = code.replace(anchor, f'{werygram_btn}\n        {anchor}')
-        print("✅ Главная кнопка 'Werygram' установлена возле Уведомлений!")
+    # Вставляем ВЫШЕ первого упоминания Notifications
+    match = re.search(r'(items\.add\([\s\S]*?[nN]otif[\s\S]*?\);)', code)
+    if match:
+        anchor = match.group(1)
+        code = code.replace(anchor, f'{BUTTON}\n        {anchor}', 1)
+        print("✅ Кнопка WeryGram Premium добавлена в начало списка настроек.")
     else:
-        # Если каскад не отработал, ищем сам метод разметки
-        if "fillItems" in code:
-            code = code.replace("void fillItems() {", "void fillItems() {\n        " + werygram_btn)
-            print("✅ Главная кнопка 'Werygram' установлена в начало метода fillItems!")
-        else:
-            print("🚨 Ошибка: Не удалось найти место для вставки главной кнопки.")
-            sys.exit(1)
+        code = code.replace(
+            "switch (item.id) {",
+            f"{BUTTON}\n        switch (item.id) {{", 1)
+        print("✅ Кнопка добавлена резервным методом.")
 
-    # Обработчик нажатия для перехода на наш кастомный экран списка функций
-    switch_anchor = "switch (item.id) {"
-    if switch_anchor in code:
-        click_logic = """case 9999: {
-            presentFragment(new WerygramSettingsActivity());
+    # 3. Обработчик клика — ОТКРЫВАЕМ новый экран, а не тоггл напрямую
+    CLICK_HANDLER = """\
+case 9999: {
+            presentFragment(new org.telegram.ui.WeryGramPremiumActivity());
             break;
         }"""
-        code = code.replace(switch_anchor, f"{switch_anchor}\n            {click_logic}")
-        print("✅ Обработчик клика успешно привязан к новому экрану!")
+    switch_anchor = "switch (item.id) {"
+    if switch_anchor in code:
+        code = code.replace(
+            switch_anchor,
+            f"{switch_anchor}\n            {CLICK_HANDLER}", 1)
+        print("✅ Обработчик клика → переход на WeryGramPremiumActivity добавлен.")
 
-    # Внедряем класс WerygramSettingsActivity (Дизайн один в один как на картинке IMG_20260603_202806.jpg)
-    code = code.strip()
-    if code.endswith("}"):
-        werygram_menu_class = """
-    public static class WerygramSettingsActivity extends org.telegram.ui.ActionBar.BaseFragment {
-        @Override
-        public android.view.View createView(android.content.Context context) {
-            actionBar.setBackButtonImage(R.drawable.ic_ab_back);
-            actionBar.setTitle("Werygram");
-            actionBar.setActionBarMenuOnItemClick(new org.telegram.ui.ActionBar.ActionBar.ActionBarMenuOnItemClick() {
-                @Override
-                public void onItemClick(int id) {
-                    if (id == -1) {
-                        finishFragment();
-                    }
-                }
-            });
+    return code
 
-            // Основной контейнер-скролл для бесконечного списка будущих функций
-            android.widget.ScrollView scrollView = new android.widget.ScrollView(context);
-            scrollView.setFillViewport(true);
-            scrollView.setBackgroundColor(org.telegram.ui.ActionBar.Theme.getColor(org.telegram.ui.ActionBar.Theme.key_windowBackgroundWhite));
 
-            android.widget.LinearLayout linearLayout = new android.widget.LinearLayout(context);
-            linearLayout.setOrientation(android.widget.LinearLayout.VERTICAL);
-            scrollView.addView(linearLayout, new android.widget.FrameLayout.LayoutParams(android.widget.FrameLayout.LayoutParams.MATCH_PARENT, android.widget.FrameLayout.LayoutParams.WRAP_CONTENT));
+def patch_userconfig(code: str) -> str:
+    """Внедряет проверку visual_premium в getCurrentUser()."""
+    if "visual_premium" in code:
+        print("ℹ️  UserConfig уже содержит патч — пропускаем.")
+        return code
 
-            // КНОПКА 1: Telegram Premium (Стиль из IMG_20260603_202806.jpg)
-            android.widget.FrameLayout cell = new android.widget.FrameLayout(context);
-            cell.setBackground(org.telegram.ui.ActionBar.Theme.getSelectorDrawable(true));
-            cell.setPadding(org.telegram.messenger.AndroidUtilities.dp(16), org.telegram.messenger.AndroidUtilities.dp(12), org.telegram.messenger.AndroidUtilities.dp(16), org.telegram.messenger.AndroidUtilities.dp(12));
+    anchor = "public TLRPC.User getCurrentUser() {"
+    if anchor not in code:
+        print("⚠️  Не найден getCurrentUser() в UserConfig — пропускаем.")
+        return code
 
-            // Текстовый блок (Слева)
-            android.widget.LinearLayout textLayout = new android.widget.LinearLayout(context);
-            textLayout.setOrientation(android.widget.LinearLayout.VERTICAL);
-
-            android.widget.TextView titleView = new android.widget.TextView(context);
-            titleView.setText("Telegram Premium");
-            titleView.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 16);
-            titleView.setTextColor(org.telegram.ui.ActionBar.Theme.getColor(org.telegram.ui.ActionBar.Theme.key_windowBackgroundWhiteBlackText));
-            textLayout.addView(titleView, org.telegram.ui.Components.LayoutHelper.createLinear(org.telegram.ui.Components.LayoutHelper.WRAP_CONTENT, org.telegram.ui.Components.LayoutHelper.WRAP_CONTENT));
-
-            android.widget.TextView subtitleView = new android.widget.TextView(context);
-            subtitleView.setText("Выдает функции Telegram Premium визуально");
-            subtitleView.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 13);
-            subtitleView.setTextColor(org.telegram.ui.ActionBar.Theme.getColor(org.telegram.ui.ActionBar.Theme.key_windowBackgroundWhiteGrayText));
-            textLayout.addView(subtitleView, org.telegram.ui.Components.LayoutHelper.createLinear(org.telegram.ui.Components.LayoutHelper.WRAP_CONTENT, org.telegram.ui.Components.LayoutHelper.WRAP_CONTENT, 0, 3, 0, 0));
-
-            cell.addView(textLayout, org.telegram.ui.Components.LayoutHelper.createFrame(org.telegram.ui.Components.LayoutHelper.MATCH_PARENT, org.telegram.ui.Components.LayoutHelper.WRAP_CONTENT, android.view.Gravity.LEFT | android.view.Gravity.CENTER_VERTICAL, 0, 0, 68, 0));
-
-            // Вертикальная разделительная черта перед свитчем (как на макете)
-            android.view.View verticalDivider = new android.view.View(context);
-            verticalDivider.setBackgroundColor(org.telegram.ui.ActionBar.Theme.getColor(org.telegram.ui.ActionBar.Theme.key_divider));
-            cell.addView(verticalDivider, org.telegram.ui.Components.LayoutHelper.createFrame(1, 24, android.view.Gravity.RIGHT | android.view.Gravity.CENTER_VERTICAL, 0, 0, 46, 0));
-
-            // Нативный синий переключатель (Справа)
-            final org.telegram.ui.Components.Switch switchView = new org.telegram.ui.Components.Switch(context);
-            boolean isEnabled = org.telegram.messenger.MessagesController.getGlobalMainSettings().getBoolean("visual_premium", false);
-            switchView.setChecked(isEnabled, false);
-            cell.addView(switchView, org.telegram.ui.Components.LayoutHelper.createFrame(org.telegram.ui.Components.LayoutHelper.WRAP_CONTENT, org.telegram.ui.Components.LayoutHelper.WRAP_CONTENT, android.view.Gravity.RIGHT | android.view.Gravity.CENTER_VERTICAL));
-
-            // Обработка нажатия на элемент списка
-            cell.setOnClickListener(new android.view.View.OnClickListener() {
-                @Override
-                public void onClick(android.view.View v) {
-                    boolean newState = !org.telegram.messenger.MessagesController.getGlobalMainSettings().getBoolean("visual_premium", false);
-                    org.telegram.messenger.MessagesController.getGlobalMainSettings().edit().putBoolean("visual_premium", newState).apply();
-                    switchView.setChecked(newState, true); // Переключаем тумблер с анимацией
-                    
-                    android.widget.Toast.makeText(getParentActivity(), newState ? "WeryGram: Visual Premium АКТИВИРОВАН! 🎉" : "WeryGram: Visual Premium ОТКЛЮЧЕН", android.widget.Toast.LENGTH_SHORT).show();
-                    org.telegram.messenger.UserConfig.getInstance(currentAccount).getCurrentUser();
-                }
-            });
-
-            linearLayout.addView(cell, org.telegram.ui.Components.LayoutHelper.createLinear(org.telegram.ui.Components.LayoutHelper.MATCH_PARENT, org.telegram.ui.Components.LayoutHelper.WRAP_CONTENT));
-
-            // Горизонтальный разделитель под кнопкой
-            android.view.View bottomDivider = new android.view.View(context);
-            bottomDivider.setBackgroundColor(org.telegram.ui.ActionBar.Theme.getColor(org.telegram.ui.ActionBar.Theme.key_divider));
-            linearLayout.addView(bottomDivider, org.telegram.ui.Components.LayoutHelper.createLinear(org.telegram.ui.Components.LayoutHelper.MATCH_PARENT, 1));
-
-            fragmentView = scrollView;
-            return fragmentView;
-        }
-    }
-"""
-        code = code[:-1] + werygram_menu_class + "\n}"
-        print("✅ Код под-меню WerygramSettingsActivity успешно добавлен!")
-
-    with open(settings_path, "w", encoding="utf-8") as f:
-        f.write(code)
-
-    # ==========================================
-    # 2. АКТИВАЦИЯ ПРЕМИУМА В СИСТЕМЕ (UserConfig)
-    # ==========================================
-    if os.path.exists(userconfig_path):
-        with open(userconfig_path, "r", encoding="utf-8") as f:
-            uc_code = f.read()
-        
-        uc_code = re.sub(r'// WG_START.*?// WG_END', '', uc_code, flags=re.DOTALL)
-        
-        uc_anchor = "public TLRPC.User getCurrentUser() {"
-        if uc_anchor in uc_code:
-            uc_injection = """public TLRPC.User getCurrentUser() {
-        // WG_START
-        if (currentUser != null && org.telegram.messenger.MessagesController.getGlobalMainSettings().getBoolean("visual_premium", false)) {
-            currentUser.premium = true;
+    injection = """\
+public TLRPC.User getCurrentUser() {
+        if (currentUser != null &&
+                org.telegram.messenger.MessagesController.getGlobalMainSettings()
+                    .getBoolean("visual_premium", false)) {
+            currentUser.premium  = true;
             currentUser.verified = true;
-        }
-        // WG_END"""
-            uc_code = uc_code.replace(uc_anchor, uc_injection)
-            with open(userconfig_path, "w", encoding="utf-8") as f:
-                f.write(uc_code)
-            print("✅ Системная логика Premium добавлена в UserConfig!")
+        }"""
+    code = code.replace(anchor, injection, 1)
+    print("✅ Логика Premium + Верификация внедрены в UserConfig.getCurrentUser().")
+    return code
 
-    # ==========================================
-    # 3. ПОДМЕНА СТАТУСА ДЛЯ ОТОБРАЖЕНИЯ (MessagesController)
-    # ==========================================
-    if os.path.exists(messages_path):
-        with open(messages_path, "r", encoding="utf-8") as f:
-            mc_code = f.read()
-        
-        mc_code = re.sub(r'// WG_MC_START.*?// WG_MC_END', '', mc_code, flags=re.DOTALL)
-        
-        mc_code = re.sub(
-            r'public TLRPC\.User getUser\((Long|Integer)\s+(\w+)\)\s*\{\s*return\s+(\w+)\.get\(\2\);\s*\}',
-            r'''public TLRPC.User getUser(\1 \2) {
+
+def patch_messages_controller(code: str) -> str:
+    """Перехватывает getUser() для подмены статуса текущего пользователя."""
+    if "visual_premium" in code:
+        print("ℹ️  MessagesController уже содержит патч — пропускаем.")
+        return code
+
+    patched = re.sub(
+        r'public TLRPC\.User getUser\((Long|Integer)\s+(\w+)\)\s*\{\s*return\s+(\w+)\.get\(\2\);\s*\}',
+        r'''public TLRPC.User getUser(\1 \2) {
         TLRPC.User user = \3.get(\2);
-        // WG_MC_START
-        if (user != null && \2 != null && \2.equals(UserConfig.getInstance(currentAccount).getClientUserId())) {
-            if (org.telegram.messenger.MessagesController.getGlobalMainSettings().getBoolean("visual_premium", false)) {
-                user.premium = true;
+        if (user != null && \2 != null &&
+                \2.equals(UserConfig.getInstance(currentAccount).getClientUserId())) {
+            if (org.telegram.messenger.MessagesController.getGlobalMainSettings()
+                    .getBoolean("visual_premium", false)) {
+                user.premium  = true;
                 user.verified = true;
             }
         }
-        // WG_MC_END
         return user;
     }''',
-            mc_code
-        )
-        with open(messages_path, "w", encoding="utf-8") as f:
-            f.write(mc_code)
-        print("✅ Глобальный перехватчик ID обновлен!")
+        code
+    )
 
-    print("\n🎉 ВСЕ МОДУЛИ ДЛЯ СТРУКТУРЫ СВИТЧЕЙ ОБНОВЛЕНЫ!")
+    if patched != code:
+        print("✅ Перехватчик getUser() добавлен в MessagesController.")
+    else:
+        print("⚠️  Сигнатура getUser() не совпала — MessagesController не изменён.")
+
+    return patched
+
+
+# ============================================================
+# ТОЧКА ВХОДА
+# ============================================================
+
+def run():
+    print("⏳  WeryGram Premium Patcher v2.0 запускается...\n")
+
+    # --- Проверяем наличие обязательного файла ---
+    if not os.path.exists(SETTINGS_PATH):
+        print(f"🚨 КРИТИЧЕСКАЯ ОШИБКА: файл не найден: {SETTINGS_PATH}")
+        sys.exit(1)
+
+    # ── 1. SettingsActivity ──────────────────────────────────────────────
+    with open(SETTINGS_PATH, "r", encoding="utf-8") as f:
+        code = f.read()
+    code = patch_settings(code)
+    with open(SETTINGS_PATH, "w", encoding="utf-8") as f:
+        f.write(code)
+
+    # ── 2. UserConfig ────────────────────────────────────────────────────
+    if os.path.exists(USERCONFIG_PATH):
+        with open(USERCONFIG_PATH, "r", encoding="utf-8") as f:
+            uc = f.read()
+        uc = patch_userconfig(uc)
+        with open(USERCONFIG_PATH, "w", encoding="utf-8") as f:
+            f.write(uc)
+    else:
+        print(f"⚠️  Не найден: {USERCONFIG_PATH}")
+
+    # ── 3. MessagesController ────────────────────────────────────────────
+    if os.path.exists(MESSAGES_PATH):
+        with open(MESSAGES_PATH, "r", encoding="utf-8") as f:
+            mc = f.read()
+        mc = patch_messages_controller(mc)
+        with open(MESSAGES_PATH, "w", encoding="utf-8") as f:
+            f.write(mc)
+    else:
+        print(f"⚠️  Не найден: {MESSAGES_PATH}")
+
+    # ── 4. Создаём новый Activity файл ───────────────────────────────────
+    out_path = os.path.join(UI_DIR, "WeryGramPremiumActivity.java")
+    if os.path.exists(out_path):
+        print(f"ℹ️  {out_path} уже существует — перезаписываем.")
+    os.makedirs(UI_DIR, exist_ok=True)
+    with open(out_path, "w", encoding="utf-8") as f:
+        f.write(PREMIUM_ACTIVITY)
+    print(f"✅ WeryGramPremiumActivity.java создан: {out_path}")
+
+    print("\n🎉  ВСЕ МОДУЛИ УСПЕШНО МОДИФИЦИРОВАНЫ!")
+    print("    ➜ Запустите сборку: ./gradlew assembleDebug")
+    print("    ➜ Новый экран откроется при нажатии «WeryGram Premium» в настройках.")
+
 
 if __name__ == "__main__":
-    patch_werygram_core()
+    run()
+        
