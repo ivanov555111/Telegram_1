@@ -11,7 +11,7 @@ def patch_werygram_core():
         print(f"🚨 КРИТИЧЕСКАЯ ОШИБКА: Файл не найден: {settings_path}")
         sys.exit(1)
 
-    print("⏳ Авто-патчер Werygram (Стиль двухстрочного свитча) запущен...")
+    print("⏳ Авто-патчер Werygram (AyuGram-style) запущен...")
 
     # ==========================================
     # 1. МОДЕРНИЗАЦИЯ ИНТЕРФЕЙСА (SettingsActivity)
@@ -19,26 +19,43 @@ def patch_werygram_core():
     with open(settings_path, "r", encoding="utf-8") as f:
         code = f.read()
 
-    # Полная зачистка старых компонентов мода
+    # Полная зачистка старых компонентов мода, чтобы не плодить дубли
     code = re.sub(r'case 9999:.*?break;', '', code, flags=re.DOTALL)
     code = re.sub(r'items\.add\(SettingCell\.Factory\.of\(9999,[\s\S]*?\);\s*', '', code)
     code = re.sub(r'items\.add\(UItem\.asCheck\(9999,[\s\S]*?\);\s*', '', code)
     code = re.sub(r'public static class WeryGramSettingsActivity[\s\S]*?$', '', code, flags=re.MULTILINE)
     code = re.sub(r'public static class WerygramSettingsActivity[\s\S]*?$', '', code, flags=re.MULTILINE)
 
-    # Создаем нативную кнопку Werygram на главном экране настроек
+    # Нативная кнопка "Werygram", которая появится в главном меню настроек
     werygram_btn = 'items.add(SettingCell.Factory.of(9999, 0xFF55CA47, 0xFF27B434, R.drawable.msg_settings, "Werygram"));'
 
-    # Вставляем её в самый верх первого списка категорий
+    # Возвращаем проверенный каскад поиска, чтобы кнопка встала в первый список настроек
+    match_privacy = re.search(r'(items\.add\([\s\S]*?[pP]rivacy[\s\S]*?\);)', code)
+    match_chat = re.search(r'(items\.add\([\s\S]*?[cC]hat[sS]ettings[\s\S]*?\);)', code)
     match_notif = re.search(r'(items\.add\([\s\S]*?[nN]otif[\s\S]*?\);)', code)
-    if match_notif:
+
+    if match_privacy:
+        anchor = match_privacy.group(1)
+        code = code.replace(anchor, f'{werygram_btn}\n        {anchor}')
+        print("✅ Главная кнопка 'Werygram' установлена возле блока Конфиденциальности!")
+    elif match_chat:
+        anchor = match_chat.group(1)
+        code = code.replace(anchor, f'{werygram_btn}\n        {anchor}')
+        print("✅ Главная кнопка 'Werygram' установлена возле Настроек чатов!")
+    elif match_notif:
         anchor = match_notif.group(1)
         code = code.replace(anchor, f'{werygram_btn}\n        {anchor}')
-        print("✅ Главная кнопка 'Werygram' установлена в список!")
+        print("✅ Главная кнопка 'Werygram' установлена возле Уведомлений!")
     else:
-        code = code.replace("switch (item.id) {", f"{werygram_btn}\n        switch (item.id) {{")
+        # Если каскад не отработал, ищем сам метод разметки
+        if "fillItems" in code:
+            code = code.replace("void fillItems() {", "void fillItems() {\n        " + werygram_btn)
+            print("✅ Главная кнопка 'Werygram' установлена в начало метода fillItems!")
+        else:
+            print("🚨 Ошибка: Не удалось найти место для вставки главной кнопки.")
+            sys.exit(1)
 
-    # Обработчик нажатия для перехода на наш кастомный экран
+    # Обработчик нажатия для перехода на наш кастомный экран списка функций
     switch_anchor = "switch (item.id) {"
     if switch_anchor in code:
         click_logic = """case 9999: {
@@ -46,9 +63,9 @@ def patch_werygram_core():
             break;
         }"""
         code = code.replace(switch_anchor, f"{switch_anchor}\n            {click_logic}")
-        print("✅ Обработчик клика привязан к новому экрану!")
+        print("✅ Обработчик клика успешно привязан к новому экрану!")
 
-    # Внедряем класс WerygramSettingsActivity со стилем один в один как на скрипте IMG_20260603_202806.jpg
+    # Внедряем класс WerygramSettingsActivity (Дизайн один в один как на картинке IMG_20260603_202806.jpg)
     code = code.strip()
     if code.endswith("}"):
         werygram_menu_class = """
@@ -66,7 +83,7 @@ def patch_werygram_core():
                 }
             });
 
-            // Основной контейнер-скролл
+            // Основной контейнер-скролл для бесконечного списка будущих функций
             android.widget.ScrollView scrollView = new android.widget.ScrollView(context);
             scrollView.setFillViewport(true);
             scrollView.setBackgroundColor(org.telegram.ui.ActionBar.Theme.getColor(org.telegram.ui.ActionBar.Theme.key_windowBackgroundWhite));
@@ -75,25 +92,21 @@ def patch_werygram_core():
             linearLayout.setOrientation(android.widget.LinearLayout.VERTICAL);
             scrollView.addView(linearLayout, new android.widget.FrameLayout.LayoutParams(android.widget.FrameLayout.LayoutParams.MATCH_PARENT, android.widget.FrameLayout.LayoutParams.WRAP_CONTENT));
 
-            // Контейнер для кнопки (FrameLayout)
+            // КНОПКА 1: Telegram Premium (Стиль из IMG_20260603_202806.jpg)
             android.widget.FrameLayout cell = new android.widget.FrameLayout(context);
             cell.setBackground(org.telegram.ui.ActionBar.Theme.getSelectorDrawable(true));
-            int pLeft = org.telegram.messenger.AndroidUtilities.dp(16);
-            int pTop = org.telegram.messenger.AndroidUtilities.dp(12);
-            cell.setPadding(pLeft, pTop, pLeft, pTop);
+            cell.setPadding(org.telegram.messenger.AndroidUtilities.dp(16), org.telegram.messenger.AndroidUtilities.dp(12), org.telegram.messenger.AndroidUtilities.dp(16), org.telegram.messenger.AndroidUtilities.dp(12));
 
-            // Вертикальный лейаут для текстов (Слева)
+            // Текстовый блок (Слева)
             android.widget.LinearLayout textLayout = new android.widget.LinearLayout(context);
             textLayout.setOrientation(android.widget.LinearLayout.VERTICAL);
 
-            // Главный заголовок
             android.widget.TextView titleView = new android.widget.TextView(context);
             titleView.setText("Telegram Premium");
             titleView.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 16);
             titleView.setTextColor(org.telegram.ui.ActionBar.Theme.getColor(org.telegram.ui.ActionBar.Theme.key_windowBackgroundWhiteBlackText));
             textLayout.addView(titleView, org.telegram.ui.Components.LayoutHelper.createLinear(org.telegram.ui.Components.LayoutHelper.WRAP_CONTENT, org.telegram.ui.Components.LayoutHelper.WRAP_CONTENT));
 
-            // Описание под ним (как на картинке IMG_20260603_202806.jpg)
             android.widget.TextView subtitleView = new android.widget.TextView(context);
             subtitleView.setText("Выдает функции Telegram Premium визуально");
             subtitleView.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 13);
@@ -102,24 +115,24 @@ def patch_werygram_core():
 
             cell.addView(textLayout, org.telegram.ui.Components.LayoutHelper.createFrame(org.telegram.ui.Components.LayoutHelper.MATCH_PARENT, org.telegram.ui.Components.LayoutHelper.WRAP_CONTENT, android.view.Gravity.LEFT | android.view.Gravity.CENTER_VERTICAL, 0, 0, 68, 0));
 
-            // Вертикальная разделительная полоса перед свитчем
+            // Вертикальная разделительная черта перед свитчем (как на макете)
             android.view.View verticalDivider = new android.view.View(context);
             verticalDivider.setBackgroundColor(org.telegram.ui.ActionBar.Theme.getColor(org.telegram.ui.ActionBar.Theme.key_divider));
             cell.addView(verticalDivider, org.telegram.ui.Components.LayoutHelper.createFrame(1, 24, android.view.Gravity.RIGHT | android.view.Gravity.CENTER_VERTICAL, 0, 0, 46, 0));
 
-            // Фирменный синий тумблер Телеграма (Справа)
+            // Нативный синий переключатель (Справа)
             final org.telegram.ui.Components.Switch switchView = new org.telegram.ui.Components.Switch(context);
             boolean isEnabled = org.telegram.messenger.MessagesController.getGlobalMainSettings().getBoolean("visual_premium", false);
             switchView.setChecked(isEnabled, false);
             cell.addView(switchView, org.telegram.ui.Components.LayoutHelper.createFrame(org.telegram.ui.Components.LayoutHelper.WRAP_CONTENT, org.telegram.ui.Components.LayoutHelper.WRAP_CONTENT, android.view.Gravity.RIGHT | android.view.Gravity.CENTER_VERTICAL));
 
-            // Обработка клика по ВСЕЙ строке
+            // Обработка нажатия на элемент списка
             cell.setOnClickListener(new android.view.View.OnClickListener() {
                 @Override
                 public void onClick(android.view.View v) {
                     boolean newState = !org.telegram.messenger.MessagesController.getGlobalMainSettings().getBoolean("visual_premium", false);
                     org.telegram.messenger.MessagesController.getGlobalMainSettings().edit().putBoolean("visual_premium", newState).apply();
-                    switchView.setChecked(newState, true); // Переключаем с плавной анимацией
+                    switchView.setChecked(newState, true); // Переключаем тумблер с анимацией
                     
                     android.widget.Toast.makeText(getParentActivity(), newState ? "WeryGram: Visual Premium АКТИВИРОВАН! 🎉" : "WeryGram: Visual Premium ОТКЛЮЧЕН", android.widget.Toast.LENGTH_SHORT).show();
                     org.telegram.messenger.UserConfig.getInstance(currentAccount).getCurrentUser();
@@ -128,7 +141,7 @@ def patch_werygram_core():
 
             linearLayout.addView(cell, org.telegram.ui.Components.LayoutHelper.createLinear(org.telegram.ui.Components.LayoutHelper.MATCH_PARENT, org.telegram.ui.Components.LayoutHelper.WRAP_CONTENT));
 
-            // Тонкая горизонтальная линия-разделитель под ячейкой
+            // Горизонтальный разделитель под кнопкой
             android.view.View bottomDivider = new android.view.View(context);
             bottomDivider.setBackgroundColor(org.telegram.ui.ActionBar.Theme.getColor(org.telegram.ui.ActionBar.Theme.key_divider));
             linearLayout.addView(bottomDivider, org.telegram.ui.Components.LayoutHelper.createLinear(org.telegram.ui.Components.LayoutHelper.MATCH_PARENT, 1));
@@ -139,7 +152,7 @@ def patch_werygram_core():
     }
 """
         code = code[:-1] + werygram_menu_class + "\n}"
-        print("✅ Нативный двухстрочный дизайн кнопки успешно добавлен в код!")
+        print("✅ Код под-меню WerygramSettingsActivity успешно добавлен!")
 
     with open(settings_path, "w", encoding="utf-8") as f:
         f.write(code)
@@ -196,7 +209,7 @@ def patch_werygram_core():
             f.write(mc_code)
         print("✅ Глобальный перехватчик ID обновлен!")
 
-    print("\n🎉 ВСЁ СМОДЕЛИРОВАНО ИДЕАЛЬНО! Отправляем на компиляцию.")
+    print("\n🎉 ВСЕ МОДУЛИ ДЛЯ СТРУКТУРЫ СВИТЧЕЙ ОБНОВЛЕНЫ!")
 
 if __name__ == "__main__":
     patch_werygram_core()
