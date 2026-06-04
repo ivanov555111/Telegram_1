@@ -10,14 +10,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Скачиваем репозиторий со всеми подмодулями
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
           submodules: recursive
           fetch-depth: 0
 
-      # 2. Устанавливаем правильную версию Java (для Телеграма нужна 17)
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
@@ -25,13 +23,11 @@ jobs:
           distribution: 'zulu'
           cache: 'gradle'
 
-      # 3. Настраиваем Python для запуска нашего скрипта автоматизации
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.x'
 
-      # 4. Запускаем наш патчер, который передвинет кнопку и пропишет клики
       - name: Run Patcher Script
         run: |
           if [ -f patcher.py ]; then
@@ -40,22 +36,25 @@ jobs:
             echo "⚠️ Предупреждение: Файл patcher.py не найден в корне проекта!"
           fi
 
-      # 5. Даем права на запуск сборщика Gradle
       - name: Grant Execute Permission for Gradle
         run: chmod +x gradlew
 
-      # 6. Компилируем проект (создаем Debug APK)
       - name: Build Debug APK
-        run: ./gradlew assembleDebug --no-daemon
+        run: ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tee build_log.txt; exit ${PIPESTATUS[0]}
 
-      # 7. СКАНЕР: Находим, куда именно Gradle спрятал готовый APK
+      - name: Show Build Log Tail on Failure
+        if: failure()
+        run: |
+          echo "=== ПОСЛЕДНИЕ 200 СТРОК ==="
+          tail -200 build_log.txt
+          echo "=== ОШИБКИ ==="
+          grep -n "Caused by\|error:\|FAILED\|Exception" build_log.txt | tail -50
+
       - name: Find APK Files
         run: |
-          echo "=== Поиск всех скомпилированных APK файлов ==="
+          echo "=== Поиск APK ==="
           find . -name "*.apk" -type f
-          echo "============================================="
 
-      # 8. ЗАГРУЗКА АРТЕФАКТОВ С ПОЛНЫМ ПОКРЫТИЕМ
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
@@ -63,3 +62,10 @@ jobs:
           path: |
             **/*.apk
           if-no-files-found: error
+
+      - name: Upload Build Log on Failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build_log.txt
