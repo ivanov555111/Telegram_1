@@ -51,15 +51,13 @@ import android.content.SharedPreferences;
 import android.widget.LinearLayout;
 import android.widget.Switch;
 import android.widget.TextView;
-import android.widget.Toast;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.MessagesController;
 import org.telegram.messenger.NotificationCenter;
-import org.telegram.messenger.UserConfig;
-import org.telegram.tgnet.TLRPC;
 import org.telegram.ui.ActionBar.ActionBar;
 import org.telegram.ui.ActionBar.BaseFragment;
 import org.telegram.ui.ActionBar.Theme;
+
 public class WeryGramPremiumActivity extends BaseFragment {
     @Override
     public android.view.View createView(Context context) {
@@ -68,81 +66,53 @@ public class WeryGramPremiumActivity extends BaseFragment {
         actionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
             @Override public void onItemClick(int id) { if (id == -1) finishFragment(); }
         });
+        
         LinearLayout root = new LinearLayout(context);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
+        
         final SharedPreferences prefs = MessagesController.getGlobalMainSettings();
-        final int account = currentAccount;
+        
         LinearLayout row = new LinearLayout(context);
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setPadding(AndroidUtilities.dp(16),AndroidUtilities.dp(14),AndroidUtilities.dp(16),AndroidUtilities.dp(14));
         row.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        
         LinearLayout labels = new LinearLayout(context);
         labels.setOrientation(LinearLayout.VERTICAL);
         labels.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        
         TextView title = new TextView(context);
         title.setText("Visual Premium");
         title.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 16);
         title.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
+        
         TextView sub = new TextView(context);
         sub.setText("\u0414\u0430\u0451\u0442 \u0432\u0438\u0437\u0443\u0430\u043b\u044c\u043d\u043e Telegram Premium");
         sub.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 13);
         sub.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText2));
+        
         labels.addView(title);
         labels.addView(sub);
+        
         android.view.View div = new android.view.View(context);
         div.setBackgroundColor(Theme.getColor(Theme.key_divider));
         LinearLayout.LayoutParams dp2 = new LinearLayout.LayoutParams(AndroidUtilities.dp(1), AndroidUtilities.dp(40));
         dp2.setMargins(AndroidUtilities.dp(12),0,AndroidUtilities.dp(12),0);
         div.setLayoutParams(dp2);
+        
         Switch toggle = new Switch(context);
         toggle.setChecked(prefs.getBoolean("wery_visual_premium", false));
         toggle.setOnCheckedChangeListener((btn, checked) -> {
             prefs.edit().putBoolean("wery_visual_premium", checked).apply();
             NotificationCenter.getGlobalInstance().postNotificationName(NotificationCenter.currentUserPremiumStatusChanged);
         });
+        
         row.addView(labels);
         row.addView(div);
         row.addView(toggle);
         root.addView(row);
-        android.view.View divider = new android.view.View(context);
-        divider.setBackgroundColor(Theme.getColor(Theme.key_divider));
-        divider.setLayoutParams(new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 1));
-        root.addView(divider);
-        TextView saveEmoji = new TextView(context);
-        saveEmoji.setText("\u0421\u043e\u0445\u0440\u0430\u043d\u0438\u0442\u044c \u0442\u0435\u043a\u0443\u0449\u0438\u0439 emoji");
-        saveEmoji.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 16);
-        saveEmoji.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlueText4));
-        saveEmoji.setPadding(AndroidUtilities.dp(16),AndroidUtilities.dp(14),AndroidUtilities.dp(16),AndroidUtilities.dp(14));
-        saveEmoji.setOnClickListener(v -> {
-            TLRPC.User u = UserConfig.getInstance(account).getCurrentUser();
-            if (u != null && u.emoji_status instanceof TLRPC.TL_emojiStatus) {
-                long eid = ((TLRPC.TL_emojiStatus) u.emoji_status).document_id;
-                if (eid != 0) {
-                    prefs.edit().putLong("wery_emoji_id", eid).apply();
-                    Toast.makeText(context, "Emoji \u0441\u043e\u0445\u0440\u0430\u043d\u0451\u043d!", android.widget.Toast.LENGTH_SHORT).show();
-                } else {
-                    Toast.makeText(context, "\u041d\u0435\u0442 emoji", android.widget.Toast.LENGTH_SHORT).show();
-                }
-            } else {
-                Toast.makeText(context, "\u041d\u0435\u0442 emoji", android.widget.Toast.LENGTH_SHORT).show();
-            }
-        });
-        root.addView(saveEmoji);
-        android.view.View divider2 = new android.view.View(context);
-        divider2.setBackgroundColor(Theme.getColor(Theme.key_divider));
-        divider2.setLayoutParams(new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 1));
-        root.addView(divider2);
-        TextView clearEmoji = new TextView(context);
-        clearEmoji.setText("\u0421\u0431\u0440\u043e\u0441\u0438\u0442\u044c emoji");
-        clearEmoji.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 16);
-        clearEmoji.setTextColor(0xFFCC0000);
-        clearEmoji.setPadding(AndroidUtilities.dp(16),AndroidUtilities.dp(14),AndroidUtilities.dp(16),AndroidUtilities.dp(14));
-        clearEmoji.setOnClickListener(v -> {
-            prefs.edit().remove("wery_emoji_id").apply();
-            Toast.makeText(context, "Emoji \u0441\u0431\u0440\u043e\u0448\u0435\u043d", android.widget.Toast.LENGTH_SHORT).show();
-        });
-        root.addView(clearEmoji);
+        
         fragmentView = root;
         return fragmentView;
     }
@@ -170,22 +140,52 @@ def patch_user_config(errors):
     for ch in text[line_start:ret_pos]:
         if ch in (' ', '\t'): indent += ch
         else: break
+    
+    # Авто-сейв и восстановление эмодзи, цвета профиля и цвета имени
     patch = (
         f'{indent}try {{\n'
         f'{indent}    android.content.SharedPreferences __p = org.telegram.messenger.MessagesController.getGlobalMainSettings();\n'
         f'{indent}    if (currentUser != null && __p.getBoolean("wery_visual_premium", false)) {{\n'
         f'{indent}        currentUser.premium = true;\n'
-        f'{indent}        boolean __hasEmoji = (currentUser.emoji_status instanceof org.telegram.tgnet.TLRPC.TL_emojiStatus)\n'
-        f'{indent}            && ((org.telegram.tgnet.TLRPC.TL_emojiStatus) currentUser.emoji_status).document_id != 0;\n'
-        f'{indent}        if (__hasEmoji) {{\n'
+        f'{indent}        if (currentUser.emoji_status instanceof org.telegram.tgnet.TLRPC.TL_emojiStatus) {{\n'
         f'{indent}            long __curEid = ((org.telegram.tgnet.TLRPC.TL_emojiStatus) currentUser.emoji_status).document_id;\n'
-        f'{indent}            if (__curEid != __p.getLong("wery_emoji_id", 0)) __p.edit().putLong("wery_emoji_id", __curEid).apply();\n'
+        f'{indent}            if (__curEid != 0 && __curEid != __p.getLong("wery_emoji_id", 0)) __p.edit().putLong("wery_emoji_id", __curEid).apply();\n'
         f'{indent}        }} else {{\n'
         f'{indent}            long __savedEid = __p.getLong("wery_emoji_id", 0);\n'
         f'{indent}            if (__savedEid != 0) {{\n'
         f'{indent}                org.telegram.tgnet.TLRPC.TL_emojiStatus __es = new org.telegram.tgnet.TLRPC.TL_emojiStatus();\n'
         f'{indent}                __es.document_id = __savedEid;\n'
         f'{indent}                currentUser.emoji_status = __es;\n'
+        f'{indent}            }}\n'
+        f'{indent}        }}\n'
+        f'{indent}        if (currentUser.profile_color != null) {{\n'
+        f'{indent}            int __cColor = currentUser.profile_color.color;\n'
+        f'{indent}            long __cEmoji = currentUser.profile_color.background_emoji_id;\n'
+        f'{indent}            if (__cColor != __p.getInt("wery_pcolor_id", -1) || __cEmoji != __p.getLong("wery_pcolor_emoji", 0)) {{\n'
+        f'{indent}                __p.edit().putInt("wery_pcolor_id", __cColor).putLong("wery_pcolor_emoji", __cEmoji).apply();\n'
+        f'{indent}            }}\n'
+        f'{indent}        }} else {{\n'
+        f'{indent}            int __savedPid = __p.getInt("wery_pcolor_id", -1);\n'
+        f'{indent}            long __savedPEmoji = __p.getLong("wery_pcolor_emoji", 0);\n'
+        f'{indent}            if (__savedPid != -1 || __savedPEmoji != 0) {{\n'
+        f'{indent}                currentUser.profile_color = new org.telegram.tgnet.TLRPC.TL_peerColor();\n'
+        f'{indent}                if (__savedPid != -1) currentUser.profile_color.color = __savedPid;\n'
+        f'{indent}                currentUser.profile_color.background_emoji_id = __savedPEmoji;\n'
+        f'{indent}            }}\n'
+        f'{indent}        }}\n'
+        f'{indent}        if (currentUser.color != null) {{\n'
+        f'{indent}            int __nColor = currentUser.color.color;\n'
+        f'{indent}            long __nEmoji = currentUser.color.background_emoji_id;\n'
+        f'{indent}            if (__nColor != __p.getInt("wery_color_id", -1) || __nEmoji != __p.getLong("wery_color_emoji", 0)) {{\n'
+        f'{indent}                __p.edit().putInt("wery_color_id", __nColor).putLong("wery_color_emoji", __nEmoji).apply();\n'
+        f'{indent}            }}\n'
+        f'{indent}        }} else {{\n'
+        f'{indent}            int __savedCid = __p.getInt("wery_color_id", -1);\n'
+        f'{indent}            long __savedCEmoji = __p.getLong("wery_color_emoji", 0);\n'
+        f'{indent}            if (__savedCid != -1 || __savedCEmoji != 0) {{\n'
+        f'{indent}                currentUser.color = new org.telegram.tgnet.TLRPC.TL_peerColor();\n'
+        f'{indent}                if (__savedCid != -1) currentUser.color.color = __savedCid;\n'
+        f'{indent}                currentUser.color.background_emoji_id = __savedCEmoji;\n'
         f'{indent}            }}\n'
         f'{indent}        }}\n'
         f'{indent}    }}\n'
@@ -214,11 +214,37 @@ def patch_messages_controller(errors):
         print("✘ MessagesController: getUser(Long) не найден", file=sys.stderr)
         return errors + 1
     var_name = "id" if "Long id)" in marker else ("uid" if "Long uid)" in marker else "javaLong")
+    
+    # Жесткий фикс ботов и других юзеров: проверяем !__u.bot и точное совпадение ID 
     insertion = (
-        f"        if ({var_name} != null && {var_name} == (long) UserConfig.getInstance(currentAccount).getClientUserId()\n"
-        f"            && org.telegram.messenger.MessagesController.getGlobalMainSettings().getBoolean(\"wery_visual_premium\", false)) {{\n"
+        f"        if ({var_name} != null && org.telegram.messenger.MessagesController.getGlobalMainSettings().getBoolean(\"wery_visual_premium\", false)) {{\n"
         f"            org.telegram.tgnet.TLRPC.User __u = users.get({var_name});\n"
-        f"            if (__u != null) __u.premium = true;\n"
+        f"            if (__u != null && !__u.bot && __u.id == (long) UserConfig.getInstance(currentAccount).getClientUserId()) {{\n"
+        f"                __u.premium = true;\n"
+        f"                try {{\n"
+        f"                    android.content.SharedPreferences __p = org.telegram.messenger.MessagesController.getGlobalMainSettings();\n"
+        f"                    long __savedEid = __p.getLong(\"wery_emoji_id\", 0);\n"
+        f"                    if (__savedEid != 0 && !(__u.emoji_status instanceof org.telegram.tgnet.TLRPC.TL_emojiStatus)) {{\n"
+        f"                        org.telegram.tgnet.TLRPC.TL_emojiStatus __es = new org.telegram.tgnet.TLRPC.TL_emojiStatus();\n"
+        f"                        __es.document_id = __savedEid;\n"
+        f"                        __u.emoji_status = __es;\n"
+        f"                    }}\n"
+        f"                    int __savedPid = __p.getInt(\"wery_pcolor_id\", -1);\n"
+        f"                    long __savedPEmoji = __p.getLong(\"wery_pcolor_emoji\", 0);\n"
+        f"                    if (__savedPid != -1 || __savedPEmoji != 0) {{\n"
+        f"                        if (__u.profile_color == null) __u.profile_color = new org.telegram.tgnet.TLRPC.TL_peerColor();\n"
+        f"                        if (__savedPid != -1) __u.profile_color.color = __savedPid;\n"
+        f"                        __u.profile_color.background_emoji_id = __savedPEmoji;\n"
+        f"                    }}\n"
+        f"                    int __savedCid = __p.getInt(\"wery_color_id\", -1);\n"
+        f"                    long __savedCEmoji = __p.getLong(\"wery_color_emoji\", 0);\n"
+        f"                    if (__savedCid != -1 || __savedCEmoji != 0) {{\n"
+        f"                        if (__u.color == null) __u.color = new org.telegram.tgnet.TLRPC.TL_peerColor();\n"
+        f"                        if (__savedCid != -1) __u.color.color = __savedCid;\n"
+        f"                        __u.color.background_emoji_id = __savedCEmoji;\n"
+        f"                    }}\n"
+        f"                }} catch (Exception __e) {{}}\n"
+        f"            }}\n"
         f"        }}"
     )
     write(mc, text.replace(marker, marker + "\n" + insertion, 1))
