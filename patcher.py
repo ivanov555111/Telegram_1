@@ -460,62 +460,143 @@ def main():
     sa = find_file("SettingsActivity.java")
     if not sa: print("✘ SettingsActivity.java not found", file=sys.stderr); sys.exit(1)
 
-    if not insert_before(sa, "import org.telegram.ui.Components.", "import org.telegram.ui.WeryGramPremiumActivity;"): errors += 1
+    # ── import ────────────────────────────────────────────────────────────────
+    if not insert_before(sa, "import org.telegram.ui.Components.",
+                         "import org.telegram.ui.WeryGramPremiumActivity;"): errors += 1
 
-    # WeryGram кнопка — ПЕРВОЙ (строго перед Аккаунтом)
+    # ── Кнопка WeryGram в списке настроек ─────────────────────────────────────
     text = read(sa)
     if 'UItem.asButton(1000' not in text:
-        # Ищем точную строку где items.add добавляет accountRow
-        account_line = None
-        for ln in text.splitlines():
-            if 'items.add(' in ln and 'accountRow' in ln:
-                account_line = ln
-                break
 
-        if account_line:
-            # Берём отступ из найденной строки чтобы кнопка выглядела одинаково
-            indent = account_line[:len(account_line) - len(account_line.lstrip())]
-            wery_item = f'{indent}items.add(UItem.asButton(1000, R.drawable.msg_settings, "WeryGram"));'
-            if not insert_before(sa, account_line, wery_item):
-                errors += 1
-        else:
-            # Fallback: нет accountRow → вставляем в начало fillItems
-            fill_anchors = [
-                "void fillItems(ArrayList<UItem> items, UniversalAdapter adapter) {",
-                "public void fillItems(ArrayList<UItem> items, UniversalAdapter adapter) {",
-                "private void fillItems(ArrayList<UItem> items, UniversalAdapter adapter) {",
-            ]
-            fill_anchor = next((a for a in fill_anchors if a in text), None)
-            if fill_anchor:
-                if not insert_after(sa, fill_anchor, '        items.add(0, UItem.asButton(1000, R.drawable.msg_settings, "WeryGram"));'):
-                    errors += 1
+        # 1. Ищем fillItems через regex (любая видимость + вариации)
+        fill_m = re_mod.search(
+            r'((?:(?:public|private|protected)\s+)?void\s+fillItems\s*'
+            r'\(\s*ArrayList[^)]*\)\s*\{)',
+            text
+        )
+        if fill_m:
+            fill_marker = fill_m.group(1)
+            fm_pos      = text.find(fill_marker)
+            brace_pos   = text.find('{', fm_pos + len(fill_marker) - 1)
+            method_end  = find_method_end(text, brace_pos)
+            body        = text[brace_pos + 1 : method_end]
+
+            # Пропускаем служебные строки (тень, профиль, заголовок…)
+            _SKIP = ('asShadow', 'asProfile', 'asGraySection', 'asHeader',
+                     'asFlicker', 'asBig', 'asProfileCard', 'asUser')
+            target_line = None
+
+            # Стратегия A: первая items.add() после хотя бы одной служебной
+            found_service = False
+            for ln in body.split('\n'):
+                s = ln.strip()
+                if not s.startswith('items.add('): continue
+                if any(w in s for w in _SKIP):
+                    found_service = True
+                    continue
+                if found_service:
+                    target_line = ln
+                    break
+
+            # Стратегия Б: первая items.add() вообще, не-служебная
+            if not target_line:
+                for ln in body.split('\n'):
+                    s = ln.strip()
+                    if s.startswith('items.add(') and not any(w in s for w in _SKIP):
+                        target_line = ln
+                        break
+
+            # Стратегия В: ищем accountRow / notificationsRow / privacyRow
+            if not target_line:
+                row_kw = ('accountRow', 'notificationsRow', 'privacyRow',
+                          'chatRow', 'dataRow', 'settingsRow')
+                for ln in body.split('\n'):
+                    if 'items.add(' in ln and any(k in ln for k in row_kw):
+                        target_line = ln
+                        break
+
+            # Вставляем
+            if target_line and target_line in text:
+                indent   = target_line[:len(target_line) - len(target_line.lstrip())]
+                wery_btn = f'{indent}items.add(UItem.asButton(1000, R.drawable.msg_settings, "WeryGram"));'
+                write(sa, text.replace(target_line, wery_btn + '\n' + target_line, 1))
+                print("✔ SA: WeryGram button вставлена перед первым пунктом настроек")
             else:
-                print("✘ fillItems/accountRow не найден", file=sys.stderr); errors += 1
-    else:
-        print("↩ skip WeryGram button")
-
-    click_anchors = [
-        "void onItemClick(UItem item, View view, int position, float x, float y) {",
-        "public void onItemClick(UItem item, View view, int position, float x, float y) {",
-        "private void onItemClick(UItem item, View view, int position, float x, float y) {",
-        "private void onClick(UItem item, View view, int position, float x, float y) {",
-        "void onClick(UItem item, View view, int position, float x, float y) {",
-        "public void onClick(UItem item, View view, int position, float x, float y) {",
-        "void onClick(UItem item) {",
-        "public void onClick(UItem item) {",
-    ]
-    click_anchor = next((a for a in click_anchors if a in read(sa)), None)
-    if click_anchor:
-        if not insert_after(sa, click_anchor,
-            '        if (item.id == 1000) { presentFragment(new WeryGramPremiumActivity()); return; }'):
+                # Fallback: самое начало тела fillItems
+                write(sa, text.replace(
+                    fill_marker,
+                    fill_marker + '\n        items.add(0, UItem.asButton(1000, R.drawable.msg_settings, "WeryGram"));',
+                    1))
+                print("✔ SA: WeryGram button вставлена в начало fillItems (fallback)")
+        else:
+            print("✘ fillItems не найден в SettingsActivity", file=sys.stderr)
             errors += 1
     else:
-        print("✘ onClick не найден", file=sys.stderr); errors += 1
+        print("↩ skip WeryGram button (already patched)")
 
+    # ── Обработчик клика ──────────────────────────────────────────────────────
+    text = read(sa)
+    if 'item.id == 1000' not in text:
+
+        # Варианты сигнатур onItemClick / onClick с UItem
+        click_anchors = [
+            "void onItemClick(UItem item, View view, int position, float x, float y) {",
+            "public void onItemClick(UItem item, View view, int position, float x, float y) {",
+            "private void onItemClick(UItem item, View view, int position, float x, float y) {",
+            "protected void onItemClick(UItem item, View view, int position, float x, float y) {",
+            "void onItemClick(UItem item, View view, int position) {",
+            "public void onItemClick(UItem item, View view, int position) {",
+            "private void onItemClick(UItem item, View view, int position) {",
+            "private void onClick(UItem item, View view, int position, float x, float y) {",
+            "void onClick(UItem item, View view, int position, float x, float y) {",
+            "public void onClick(UItem item, View view, int position, float x, float y) {",
+            "void onClick(UItem item) {",
+            "public void onClick(UItem item) {",
+            "private void onClick(UItem item) {",
+        ]
+        click_anchor = next((a for a in click_anchors if a in text), None)
+
+        if click_anchor:
+            if not insert_after(sa, click_anchor,
+                    '        if (item.id == 1000) { presentFragment(new WeryGramPremiumActivity()); return; }'):
+                errors += 1
+        else:
+            # Lambda / анонимный listener
+            lambda_anchors = [
+                ".setOnItemClickListener((item, view, position, x, y) -> {",
+                ".setOnClickListener((item, view, position, x, y) -> {",
+                "onItemClickListener = (item, view, position, x, y) -> {",
+                ".setOnItemClickListener((item, view, pos, x, y) -> {",
+            ]
+            la = next((a for a in lambda_anchors if a in text), None)
+            if la:
+                if not insert_after(sa, la,
+                        '            if (item.id == 1000) { presentFragment(new WeryGramPremiumActivity()); return; }'):
+                    errors += 1
+            else:
+                # Regex — любой метод с UItem в параметрах
+                cm = re_mod.search(
+                    r'((?:(?:public|private|protected)\s+)?void\s+'
+                    r'(?:onItemClick|onClick)\s*\([^)]*UItem[^)]*\)\s*\{)',
+                    text
+                )
+                if cm:
+                    if not insert_after(sa, cm.group(1),
+                            '        if (item.id == 1000) { presentFragment(new WeryGramPremiumActivity()); return; }'):
+                        errors += 1
+                else:
+                    print("✘ onClick не найден в SettingsActivity — добавь вручную:", file=sys.stderr)
+                    print('  if (item.id == 1000) { presentFragment(new WeryGramPremiumActivity()); return; }',
+                          file=sys.stderr)
+                    errors += 1
+    else:
+        print("↩ skip click handler (already patched)")
+
+    # ── Создаём Java-файлы ────────────────────────────────────────────────────
     ui_dir = os.path.dirname(sa)
     for fname, content in [
         ("WeryGramPremiumActivity.java", ACTIVITY),
-        ("WeryGramGifts.java", GIFTS_JAVA),
+        ("WeryGramGifts.java",           GIFTS_JAVA),
     ]:
         dest = os.path.join(ui_dir, fname)
         if os.path.exists(dest): os.remove(dest)
