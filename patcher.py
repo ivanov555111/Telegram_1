@@ -441,6 +441,35 @@ def patch_app_name(errors):
     return errors
 
 
+def patch_drawer_layout(errors):
+    """Заменяет название Telegram на WeryGram в главном меню"""
+    files_to_check = [
+        "LaunchActivity.java",
+        "DrawerLayoutActivity.java",
+        "MainActivity.java",
+    ]
+    
+    for fname in files_to_check:
+        layout_file = find_file(fname)
+        if not layout_file: continue
+        
+        text = read(layout_file)
+        if 'wery_drawer_title' in text:
+            print(f"↩ skip {fname}"); 
+            return errors
+        
+        if 'getString(R.string.AppName)' in text and 'wery' not in text:
+            old = 'getString(R.string.AppName)'
+            new = '(org.telegram.messenger.MessagesController.getGlobalMainSettings().getBoolean("wery_visual_premium",false)?"WeryGram":"Telegram")'
+            text = text.replace(old, new, 1)
+            write(layout_file, text)
+            print(f"✔ {fname}: app title patch")
+            return errors
+    
+    print("⚠ Drawer layout file not found")
+    return errors
+
+
 def main():
     print("▶ WeryGram patcher\n")
     errors = 0
@@ -449,6 +478,7 @@ def main():
     errors = patch_messages_controller(errors)
     errors = patch_stars_controller(errors)
     errors = patch_app_name(errors)
+    errors = patch_drawer_layout(errors)
 
     sa = find_file("SettingsActivity.java")
     if not sa: print("✘ SettingsActivity.java not found", file=sys.stderr); sys.exit(1)
