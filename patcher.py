@@ -38,7 +38,6 @@ def insert_after(path, marker, insertion):
     if marker not in text: print(f"✘ NOT FOUND: {marker!r}", file=sys.stderr); return False
     write(path, text.replace(marker, marker + "\n" + insertion, 1)); return True
 
-# ──────────────────────────────────────────────────────────────────[...]
 GIFTS_JAVA = '''\
 package org.telegram.ui;
 
@@ -187,7 +186,6 @@ public class WeryGramGifts {
 }
 '''
 
-# ──────────────────────────────────────────────────────────────────[...]
 ACTIVITY = '''\
 package org.telegram.ui;
 
@@ -272,7 +270,7 @@ public class WeryGramPremiumActivity extends BaseFragment {
             "wery_visual_premium", null);
         addRow(context, root,
             "\u0420\u0435\u0436\u0438\u043c \u041f\u0440\u0438\u0437\u0440\u0430\u043a\u0430",
-            "\u0412\u044b \u0431\u0443\u0434\u0435\u0442\u0435 \u0432 \u0441\u0442\u0430\u0442\u0443\u0441\u0435 \u043d\u0435\u0432\u0438\u0434\u0438\u043c\u043a\u0438, \u043f\u0440\u0438 \u043f\u043e[...]
+            "\u0412\u044b \u0431\u0443\u0434\u0435\u0442\u0435 \u0432 \u0441\u0442\u0430\u0442\u0443\u0441\u0435 \u043d\u0435\u0432\u0438\u0434\u0438\u043c\u043a\u0438, \u043f\u0440\u0438 \u043f\u043e\u043b\u043e\u0436\u0435\u043d\u0438\u0438 \u043e\u0444\u0444\u043b\u0430\u0439\u043d",
             "wery_ghost_mode", null);
         addRow(context, root,
             "\u0423\u0434\u0430\u043b\u0451\u043d\u043d\u044b\u0435 \u043f\u043e\u0434\u0430\u0440\u043a\u0438",
@@ -284,8 +282,6 @@ public class WeryGramPremiumActivity extends BaseFragment {
     }
 }
 '''
-
-# ──────────────────────────────────────────────────────────────────[...]
 
 def patch_user_config(errors):
     uc = find_file("UserConfig.java")
@@ -302,37 +298,37 @@ def patch_user_config(errors):
         if ch in (' ','\t'): indent += ch
         else: break
     patch = (
-        f'{indent}try {{\n'
-        f'{indent}    android.content.SharedPreferences __p = org.telegram.messenger.MessagesController.getGlobalMainSettings();\n'
-        f'{indent}    if (currentUser != null && __p.getBoolean("wery_visual_premium", false)) {{\n'
-        f'{indent}        currentUser.premium = true;\n'
-        f'{indent}        if (currentUser.emoji_status instanceof org.telegram.tgnet.TLRPC.TL_emojiStatus) {{\n'
-        f'{indent}            long __curEid=((org.telegram.tgnet.TLRPC.TL_emojiStatus)currentUser.emoji_status).document_id;\n'
-        f'{indent}            if(__curEid!=0){{__p.edit().putLong("wery_emoji_id",__curEid).apply();}}\n'
-        f'{indent}            else{{long __se=__p.getLong("wery_emoji_id",0);if(__se!=0)((org.telegram.tgnet.TLRPC.TL_emojiStatus)currentUser.emoji_status).document_id=__se;}}\n'
-        f'{indent}        }}else{{\n'
-        f'{indent}            long __se=__p.getLong("wery_emoji_id",0);\n'
-        f'{indent}            if(__se!=0){{org.telegram.tgnet.TLRPC.TL_emojiStatus __es=new org.telegram.tgnet.TLRPC.TL_emojiStatus();__es.document_id=__se;currentUser.emoji_status=__es;}}\n'
-        f'{indent}        }}\n'
-        f'{indent}        if(currentUser.profile_color!=null){{\n'
-        f'{indent}            int __cc=currentUser.profile_color.color;long __ce=currentUser.profile_color.background_emoji_id;\n'
-        f'{indent}            if(__cc>=0||__ce!=0){{__p.edit().putInt("wery_pcolor_id",__cc).putLong("wery_pcolor_emoji",__ce).apply();}}\n'
-        f'{indent}            else{{int __sp=__p.getInt("wery_pcolor_id",-1);long __se=__p.getLong("wery_pcolor_emoji",0);if(__sp>=0)currentUser.profile_color.color=__sp;if(__se!=0)currentUser.pr[...]
-        f'{indent}        }}else{{\n'
-        f'{indent}            int __sp=__p.getInt("wery_pcolor_id",-1);long __se=__p.getLong("wery_pcolor_emoji",0);\n'
-        f'{indent}            if(__sp>=0||__se!=0){{currentUser.profile_color=new org.telegram.tgnet.TLRPC.TL_peerColor();if(__sp>=0)currentUser.profile_color.color=__sp;currentUser.profile_color[...]
-        f'{indent}        }}\n'
-        f'{indent}        if(currentUser.color!=null){{\n'
-        f'{indent}            int __nc=currentUser.color.color;long __ne=currentUser.color.background_emoji_id;\n'
-        f'{indent}            if(__nc>=0||__ne!=0){{__p.edit().putInt("wery_color_id",__nc).putLong("wery_color_emoji",__ne).apply();}}\n'
-        f'{indent}            else{{int __sc=__p.getInt("wery_color_id",-1);long __sce=__p.getLong("wery_color_emoji",0);if(__sc>=0)currentUser.color.color=__sc;if(__sce!=0)currentUser.color.back[...]
-        f'{indent}        }}else{{\n'
-        f'{indent}            int __sc=__p.getInt("wery_color_id",-1);long __sce=__p.getLong("wery_color_emoji",0);\n'
-        f'{indent}            if(__sc>=0||__sce!=0){{currentUser.color=new org.telegram.tgnet.TLRPC.TL_peerColor();if(__sc>=0)currentUser.color.color=__sc;currentUser.color.background_emoji_id=__[...]
-        f'{indent}        }}\n'
-        f'{indent}    }}\n'
-        f'{indent}}} catch (Exception __e) {{}}\n'
-        f'{indent}'
+        indent + 'try {\n' +
+        indent + '    android.content.SharedPreferences __p = org.telegram.messenger.MessagesController.getGlobalMainSettings();\n' +
+        indent + '    if (currentUser != null && __p.getBoolean("wery_visual_premium", false)) {\n' +
+        indent + '        currentUser.premium = true;\n' +
+        indent + '        if (currentUser.emoji_status instanceof org.telegram.tgnet.TLRPC.TL_emojiStatus) {\n' +
+        indent + '            long __curEid=((org.telegram.tgnet.TLRPC.TL_emojiStatus)currentUser.emoji_status).document_id;\n' +
+        indent + '            if(__curEid!=0){__p.edit().putLong("wery_emoji_id",__curEid).apply();}\n' +
+        indent + '            else{long __se=__p.getLong("wery_emoji_id",0);if(__se!=0)((org.telegram.tgnet.TLRPC.TL_emojiStatus)currentUser.emoji_status).document_id=__se;}\n' +
+        indent + '        }else{\n' +
+        indent + '            long __se=__p.getLong("wery_emoji_id",0);\n' +
+        indent + '            if(__se!=0){org.telegram.tgnet.TLRPC.TL_emojiStatus __es=new org.telegram.tgnet.TLRPC.TL_emojiStatus();__es.document_id=__se;currentUser.emoji_status=__es;}\n' +
+        indent + '        }\n' +
+        indent + '        if(currentUser.profile_color!=null){\n' +
+        indent + '            int __cc=currentUser.profile_color.color;long __ce=currentUser.profile_color.background_emoji_id;\n' +
+        indent + '            if(__cc>=0||__ce!=0){__p.edit().putInt("wery_pcolor_id",__cc).putLong("wery_pcolor_emoji",__ce).apply();}\n' +
+        indent + '            else{int __sp=__p.getInt("wery_pcolor_id",-1);long __se=__p.getLong("wery_pcolor_emoji",0);if(__sp>=0)currentUser.profile_color.color=__sp;if(__se!=0)currentUser.profile_color.background_emoji_id=__se;}\n' +
+        indent + '        }else{\n' +
+        indent + '            int __sp=__p.getInt("wery_pcolor_id",-1);long __se=__p.getLong("wery_pcolor_emoji",0);\n' +
+        indent + '            if(__sp>=0||__se!=0){currentUser.profile_color=new org.telegram.tgnet.TLRPC.TL_peerColor();if(__sp>=0)currentUser.profile_color.color=__sp;currentUser.profile_color.background_emoji_id=__se;}\n' +
+        indent + '        }\n' +
+        indent + '        if(currentUser.color!=null){\n' +
+        indent + '            int __nc=currentUser.color.color;long __ne=currentUser.color.background_emoji_id;\n' +
+        indent + '            if(__nc>=0||__ne!=0){__p.edit().putInt("wery_color_id",__nc).putLong("wery_color_emoji",__ne).apply();}\n' +
+        indent + '            else{int __sc=__p.getInt("wery_color_id",-1);long __sce=__p.getLong("wery_color_emoji",0);if(__sc>=0)currentUser.color.color=__sc;if(__sce!=0)currentUser.color.background_emoji_id=__sce;}\n' +
+        indent + '        }else{\n' +
+        indent + '            int __sc=__p.getInt("wery_color_id",-1);long __sce=__p.getLong("wery_color_emoji",0);\n' +
+        indent + '            if(__sc>=0||__sce!=0){currentUser.color=new org.telegram.tgnet.TLRPC.TL_peerColor();if(__sc>=0)currentUser.color.color=__sc;currentUser.color.background_emoji_id=__sce;}\n' +
+        indent + '        }\n' +
+        indent + '    }\n' +
+        indent + '} catch (Exception __e) {}\n' +
+        indent
     )
     write(uc, text[:ret_pos] + patch + text[ret_pos:])
     return errors
@@ -343,7 +339,6 @@ def patch_messages_controller(errors):
     if not mc: print("✘ MessagesController.java not found", file=sys.stderr); return errors+1
     text = read(mc); modified = False
 
-    # Premium только для себя
     if 'wery_visual_premium' not in text:
         variants = ["public TLRPC.User getUser(Long id) {",
                     "public TLRPC.User getUser(Long uid) {",
@@ -352,16 +347,15 @@ def patch_messages_controller(errors):
         if marker:
             var = "id" if "Long id)" in marker else ("uid" if "Long uid)" in marker else "javaLong")
             ins = (
-                f"        if({var}!=null && {var}.longValue()==UserConfig.getInstance(currentAccount).getClientUserId()\n"
-                f"            && org.telegram.messenger.MessagesController.getGlobalMainSettings().getBoolean(\"wery_visual_premium\",false)){{\n"
-                f"            org.telegram.tgnet.TLRPC.User __u=users.get({var});\n"
-                f"            if(__u!=null&&!__u.bot)__u.premium=true;\n"
-                f"        }}"
+                "        if(" + var + "!=null && " + var + ".longValue()==UserConfig.getInstance(currentAccount).getClientUserId()\n" +
+                '            && org.telegram.messenger.MessagesController.getGlobalMainSettings().getBoolean("wery_visual_premium",false)){\n' +
+                "            org.telegram.tgnet.TLRPC.User __u=users.get(" + var + ");\n" +
+                "            if(__u!=null&&!__u.bot)__u.premium=true;\n" +
+                "        }"
             )
             text = text.replace(marker, marker+"\n"+ins, 1); modified=True
             print("✔ MC: premium patch")
 
-    # Верификация @werygram
     if 'wery_verified_ch' not in text:
         chat_variants = ["public TLRPC.Chat getChat(Long id) {",
                          "public TLRPC.Chat getChat(Long chatId) {"]
@@ -369,25 +363,21 @@ def patch_messages_controller(errors):
         if cm:
             cvar = "id" if "Long id)" in cm else "chatId"
             cins = (
-                f"        try{{\n"
-                f"            org.telegram.tgnet.TLRPC.Chat __ch=chats.get({cvar});\n"
-                f"            if(__ch!=null&&\"werygram\".equals(__ch.username)){{__ch.verified=true;}} //wery_verified_ch\n"
-                f"        }}catch(Exception __ce){{}}"
+                "        try{\n" +
+                "            org.telegram.tgnet.TLRPC.Chat __ch=chats.get(" + cvar + ");\n" +
+                '            if(__ch!=null&&"werygram".equals(__ch.username)){__ch.verified=true;}\n' +
+                "        }catch(Exception __ce){}"
             )
             text = text.replace(cm, cm+"\n"+cins, 1); modified=True
             print("✔ MC: @werygram verification patch")
-        else:
-            print("⚠ MC: getChat не найден")
 
-    # Ghost mode — онлайн
     if 'wery_ghost_online' not in text:
         for m in ["public void sendOnlineIfNeed() {", "void sendOnlineIfNeed() {"]:
             if m in text:
                 text = text.replace(m,
-                    m+'\n        if(org.telegram.messenger.MessagesController.getGlobalMainSettings().getBoolean("wery_ghost_mode",false))return; //wery_ghost_online',1)
+                    m+'\n        if(org.telegram.messenger.MessagesController.getGlobalMainSettings().getBoolean("wery_ghost_mode",false))return;',1)
                 modified=True; print("✔ Ghost: online patch"); break
 
-    # Ghost mode — прочтение
     if 'wery_ghost_read' not in text:
         for m in ["public void markDialogAsRead(",
                   "public void readMessages(",
@@ -395,7 +385,7 @@ def patch_messages_controller(errors):
             if m in text:
                 bp = text.find('{', text.find(m))
                 if bp != -1:
-                    text = text[:bp+1]+'\n        if(org.telegram.messenger.MessagesController.getGlobalMainSettings().getBoolean("wery_ghost_mode",false))return; //wery_ghost_read'+text[bp+1:]
+                    text = text[:bp+1]+'\n        if(org.telegram.messenger.MessagesController.getGlobalMainSettings().getBoolean("wery_ghost_mode",false))return;'+text[bp+1:]
                     modified=True; print("✔ Ghost: read patch")
                 break
 
@@ -410,8 +400,8 @@ def patch_stars_controller(errors):
     if 'wery_deleted_gifts' in text: print("↩ skip StarsController"); return errors
     m = next((x for x in ["giftsLoaded = true;","this.giftsLoaded = true;"] if x in text), None)
     if m:
-        write(sc, text.replace(m,
-            m+"\n        if(org.telegram.messenger.MessagesController.getGlobalMainSettings().getBoolean(\"wery_deleted_gifts\",false)){org.telegram.ui.WeryGramGifts.reset();org.telegram.ui.WeryGramGi[...]
+        injection = m + '\n        if(org.telegram.messenger.MessagesController.getGlobalMainSettings().getBoolean("wery_deleted_gifts",false)){org.telegram.ui.WeryGramGifts.reset();org.telegram.ui.WeryGramGifts.injectDeletedGifts(currentAccount);}'
+        write(sc, text.replace(m, injection))
         print("✔ StarsController: deleted gifts patch")
     else:
         print("⚠ StarsController: giftsLoaded marker не найден")
@@ -419,7 +409,6 @@ def patch_stars_controller(errors):
 
 
 def patch_app_name(errors):
-    """Заменяет AppName 'Telegram' -> 'WeryGram' только в главном strings.xml."""
     candidates = [
         os.path.join(ROOT, "TMessagesProj", "src", "main", "res", "values", "strings.xml"),
         os.path.join(ROOT, "TMessagesProj", "src", "main", "res", "values-en", "strings.xml"),
@@ -435,7 +424,6 @@ def patch_app_name(errors):
             write(path, new_text)
             print("✔ AppName → WeryGram")
             return errors
-    # Если не нашли по прямому пути — ищем
     res_base = os.path.join(ROOT, "TMessagesProj", "src", "main", "res")
     for dp, _, files in os.walk(res_base):
         if 'strings.xml' not in files: continue
@@ -465,16 +453,12 @@ def main():
     sa = find_file("SettingsActivity.java")
     if not sa: print("✘ SettingsActivity.java not found", file=sys.stderr); sys.exit(1)
 
-    # import
     if not insert_before(sa, "import org.telegram.ui.Components.",
                          "import org.telegram.ui.WeryGramPremiumActivity;"): errors += 1
 
-    # ── WeryGram кнопка ────────────────────────────────
     text = read(sa)
     
-    # Добавляем WeryGram кнопку перед кнопкой "Account"
     if 'SettingCell.Factory.of(1000' not in text:
-        # Ищем линию с кнопкой Account (id=1)
         account_button_marker = 'items.add(SettingCell.Factory.of(1, IconBackgroundColors.BLUE.top, IconBackgroundColors.BLUE.bottom, R.drawable.settings_account'
         
         if account_button_marker in text:
@@ -486,9 +470,7 @@ def main():
     else:
         print("↩ WeryGram button already exists")
 
-    # ── Обработчик клика ─────────────────────────────────
     if 'case 1000:' not in text:
-        # Ищем switch-case для обработки ID 1
         case_marker = 'case 1:\n                presentFragment(new UserInfoActivity());'
         
         if case_marker in text:
@@ -502,7 +484,6 @@ def main():
 
     write(sa, text)
 
-    # ── Java файлы ─────────────────────────────────────────────────────────
     ui_dir = os.path.dirname(sa)
     for fname, content in [
         ("WeryGramPremiumActivity.java", ACTIVITY),
